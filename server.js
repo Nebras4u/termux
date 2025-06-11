@@ -15,6 +15,26 @@ let users = new Map();
 io.on('connection', (socket) => {
     let username = null;
 
+function broadcastUsers() {
+    io.emit('users', Array.from(users.values()));
+}
+
+socket.on('join', (name) => {
+    username = name;
+    users.set(socket.id, name);
+    socket.broadcast.emit('message', { user: '🟢', text: `${name} انضم إلى الدردشة.` });
+    socket.emit('history', messages);
+    broadcastUsers();
+});
+
+socket.on('disconnect', () => {
+    if (username) {
+        users.delete(socket.id);
+        socket.broadcast.emit('message', { user: '🔴', text: `${username} غادر الدردشة.` });
+        broadcastUsers();
+    }
+});
+
     socket.on('join', (name) => {
         username = name;
         users.set(socket.id, name);

@@ -1,62 +1,247 @@
-
 <!DOCTYPE html>
 <html lang="ar">
 <head>
-  <meta charset="UTF-8">
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
   <title>دردشة Termux</title>
   <style>
-    body { font-family: sans-serif; direction: rtl; text-align: right; background: #f0f0f0; margin: 0; padding: 0; }
-    #chat { max-width: 600px; margin: 30px auto; background: white; padding: 10px; border-radius: 8px; box-shadow: 0 0 10px #ccc; }
-    #messages { list-style: none; padding: 0; max-height: 300px; overflow-y: auto; }
-    #messages li { padding: 5px 10px; margin-bottom: 5px; border-bottom: 1px solid #eee; }
-    #form { display: flex; margin-top: 10px; }
-    #input { flex: 1; padding: 10px; border: 1px solid #ccc; border-radius: 4px; }
-    #send { padding: 10px; border: none; background: #007bff; color: white; border-radius: 4px; margin-right: 5px; }
+    :root {
+      --bg-color: #ffffff;
+      --text-color: #000000;
+      --accent-color: #007bff;
+      --message-color: #f1f1f1;
+      --self-message-color: #d0f0ff;
+    }
+
+    [data-theme="dark"] {
+      --bg-color: #1e1e1e;
+      --text-color: #f0f0f0;
+      --accent-color: #0d6efd;
+      --message-color: #2c2c2c;
+      --self-message-color: #003f5c;
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    body {
+      font-family: "Segoe UI", Tahoma, Geneva, Verdana, sans-serif;
+      direction: rtl;
+      margin: 0;
+      padding: 0;
+      background: var(--bg-color);
+      color: var(--text-color);
+      min-height: 100vh;
+      display: flex;
+      justify-content: center;
+      align-items: flex-start;
+      padding: 20px;
+      transition: all 0.3s ease;
+    }
+
+    #chat {
+      width: 100%;
+      max-width: 700px;
+      background: var(--bg-color);
+      border-radius: 12px;
+      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+    }
+
+    #top-bar {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 10px 20px;
+    }
+
+    #top-bar h3 {
+      margin: 0;
+      color: var(--accent-color);
+    }
+
+    #theme-toggle {
+      cursor: pointer;
+      padding: 5px 10px;
+      border: none;
+      background: var(--accent-color);
+      color: white;
+      border-radius: 6px;
+    }
+
+    #content {
+      display: flex;
+      flex-direction: row-reverse;
+      gap: 10px;
+      padding: 0 20px;
+    }
+
+    #users {
+      width: 150px;
+      border-right: 1px solid #ccc;
+      padding-top: 5px;
+    }
+
+    #users h4 {
+      margin: 5px 0;
+    }
+
+    #user-list {
+      list-style: none;
+      padding: 0;
+      font-size: 14px;
+    }
+
+    #messages-container {
+      flex: 1;
+    }
+
+    #messages {
+      list-style: none;
+      padding: 0;
+      margin: 0;
+      max-height: 300px;
+      overflow-y: auto;
+      border: 1px solid #ddd;
+      border-radius: 8px;
+      background: var(--message-color);
+    }
+
+    #messages li {
+      padding: 10px;
+      border-bottom: 1px solid #e0e0e0;
+    }
+
+    .self {
+      background-color: var(--self-message-color);
+      border-radius: 8px;
+    }
+
+    #form {
+      display: flex;
+      gap: 8px;
+      padding: 0 20px 20px;
+    }
+
+    #input {
+      flex: 1;
+      padding: 10px;
+      font-size: 16px;
+      border: 1px solid #ccc;
+      border-radius: 6px;
+      background: var(--bg-color);
+      color: var(--text-color);
+    }
+
+    #send {
+      padding: 10px 20px;
+      background-color: var(--accent-color);
+      color: white;
+      font-size: 16px;
+      border: none;
+      border-radius: 6px;
+      cursor: pointer;
+    }
+
+    @media (max-width: 600px) {
+      #content {
+        flex-direction: column;
+      }
+
+      #users {
+        width: 100%;
+        border-right: none;
+        border-top: 1px solid #ccc;
+        padding-top: 10px;
+      }
+    }
   </style>
 </head>
-<body>
+<body data-theme="light">
   <div id="chat">
-    <h3>مرحبا بك في الدردشة</h3>
-    <ul id="messages"></ul>
+    <div id="top-bar">
+      <h3>💬 دردشة Termux</h3>
+      <button id="theme-toggle">🌙 وضع ليلي</button>
+    </div>
+
+    <div id="content">
+      <div id="users">
+        <h4>👥 المتصلون:</h4>
+        <ul id="user-list"></ul>
+      </div>
+
+      <div id="messages-container">
+        <ul id="messages"></ul>
+      </div>
+    </div>
+
     <form id="form">
       <input id="input" autocomplete="off" placeholder="اكتب رسالتك..." />
       <button id="send">إرسال</button>
     </form>
   </div>
+
   <script src="/socket.io/socket.io.js"></script>
   <script>
     const socket = io();
-    const messages = document.getElementById('messages');
-    const form = document.getElementById('form');
-    const input = document.getElementById('input');
+    const messages = document.getElementById("messages");
+    const form = document.getElementById("form");
+    const input = document.getElementById("input");
+    const userList = document.getElementById("user-list");
+    const themeToggle = document.getElementById("theme-toggle");
+    const body = document.body;
 
     let username = prompt("أدخل اسمك:");
-    socket.emit('join', username);
+    socket.emit("join", username);
 
-    socket.on('history', (history) => {
-      history.forEach(msg => {
-        addMessage(msg.user + ": " + msg.text);
-      });
-    });
-
-    socket.on('message', (msg) => {
-      addMessage(msg.user + ": " + msg.text);
-    });
-
-    form.addEventListener('submit', function(e) {
-      e.preventDefault();
-      if (input.value) {
-        socket.emit('chat message', input.value);
-        input.value = '';
-      }
-    });
-
-    function addMessage(text) {
-      const item = document.createElement('li');
+    // حفظ اسم المستخدم محليًا
+    function addMessage(text, isSelf = false) {
+      const item = document.createElement("li");
       item.textContent = text;
+      if (isSelf) item.classList.add("self");
       messages.appendChild(item);
       messages.scrollTop = messages.scrollHeight;
     }
+
+    socket.on("history", (history) => {
+      history.forEach((msg) => {
+        const isSelf = msg.user === username;
+        addMessage(msg.user + ": " + msg.text, isSelf);
+      });
+    });
+
+    socket.on("message", (msg) => {
+      const isSelf = msg.user === username;
+      addMessage(msg.user + ": " + msg.text, isSelf);
+    });
+
+    socket.on("users", (list) => {
+      userList.innerHTML = "";
+      list.forEach((name) => {
+        const li = document.createElement("li");
+        li.textContent = name;
+        userList.appendChild(li);
+      });
+    });
+
+    form.addEventListener("submit", function (e) {
+      e.preventDefault();
+      if (input.value) {
+        socket.emit("chat message", input.value);
+        input.value = "";
+      }
+    });
+
+    // زر الوضع الليلي/النهاري
+    themeToggle.addEventListener("click", () => {
+      const currentTheme = body.getAttribute("data-theme");
+      const newTheme = currentTheme === "dark" ? "light" : "dark";
+      body.setAttribute("data-theme", newTheme);
+      themeToggle.textContent = newTheme === "dark" ? "☀️ وضع نهاري" : "🌙 وضع ليلي";
+    });
   </script>
 </body>
 </html>
